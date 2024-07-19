@@ -25,25 +25,31 @@ def index():
 @application.route('/login', methods=['POST'])
 def login():
     data = request.json
-    video_stream = data['video_stream']
+    video_stream = data.get('video_stream')
+
+    if not video_stream:
+        return jsonify({'status': 'failure', 'message': 'No video stream provided'})
 
     # Convert the video stream to an OpenCV image array
     try:
         image_array = np.frombuffer(base64.b64decode(video_stream), np.uint8)
         image_array = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
     except Exception as e:
-        return jsonify({'status': 'failure', 'message': 'Error decoding video stream: {}'.format(str(e))})
+        return jsonify({'status': 'failure', 'message': f'Error decoding video stream: {str(e)}'})
 
     # Recognize the face
     face_locations = face_recognition.face_locations(image_array)
     face_encodings = face_recognition.face_encodings(image_array, face_locations)
     if len(face_encodings) == 0:
         return jsonify({'status': 'failure', 'message': 'No face detected'})
-    
+
     face_encoding = face_encodings[0]
-    
+
     # Compare face encodings with known faces
     face_distances = face_recognition.face_distance(list(known_faces.values()), face_encoding)
+    if len(face_distances) == 0:
+        return jsonify({'status': 'failure', 'message': 'No known faces to compare with'})
+
     best_match_index = np.argmin(face_distances)
     
     if face_distances[best_match_index] < 0.6:  # Adjust tolerance as needed
@@ -66,18 +72,21 @@ def register():
         image_array = np.frombuffer(base64.b64decode(video_stream), np.uint8)
         image_array = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
     except Exception as e:
-        return jsonify({'status': 'failure', 'message': 'Error decoding video stream: {}'.format(str(e))})
+        return jsonify({'status': 'failure', 'message': f'Error decoding video stream: {str(e)}'})
 
     # Extract the face encoding
     face_locations = face_recognition.face_locations(image_array)
     if len(face_locations) == 0:
         return jsonify({'status': 'failure', 'message': 'No face detected'})
-    
+
     face_encoding = face_recognition.face_encodings(image_array, face_locations)[0]
 
     # Save the face encoding to the database
-    with open(os.path.join(known_faces_dir, '{}.pickle'.format(name)), 'wb') as f:
-        pickle.dump(face_encoding, f)
+    try:
+        with open(os.path.join(known_faces_dir, f'{name}.pickle'), 'wb') as f:
+            pickle.dump(face_encoding, f)
+    except Exception as e:
+        return jsonify({'status': 'failure', 'message': f'Error saving face encoding: {str(e)}'})
 
     return jsonify({'status': 'success', 'message': 'User registered successfully'})
 
