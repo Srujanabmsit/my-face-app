@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Face Recognition</title>
+    <style>
+        #video {
+            width: 640px;
+            height: 480px;
+            border: 1px solid black;
+        }
+        body {
+            background-image: url('./bg_img.jpg');
+        }
+    </style>
+</head>
+<body>
+    <h1>Face Recognition</h1>
+    <video id="video" width="640" height="480" autoplay></video>
+    <button id="login-btn">Login</button>
+    <button id="register-btn">Register</button>
+    <input id="name-input" type="text" placeholder="Enter your name">
+    <div id="result"></div>
+
+    <script>
+        // Get the video element
+        var video = document.getElementById('video');
+
+        // Get the login and register buttons
+        var loginBtn = document.getElementById('login-btn');
+        var registerBtn = document.getElementById('register-btn');
+
+        // Get the name input field
+        var nameInput = document.getElementById('name-input');
+
+        // Get the result div
+        var resultDiv = document.getElementById('result');
+
+        // Request access to the webcam
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+            .then(stream => {
+                video.srcObject = stream;
+                video.play();
+
+                // Add event listeners to the buttons
+                loginBtn.addEventListener('click', () => {
+                    // Get the current video frame
+                    var canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    var ctx = canvas.getContext('2d');
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                    // Send the video frame to the server
+                    var imageData = canvas.toDataURL('image/png');
+                    var base64Data = imageData.split(',')[1];
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/login', true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.send(JSON.stringify({ video_stream: base64Data }));
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            var response = JSON.parse(xhr.responseText);
+                            if (response.status === 'success') {
+                                resultDiv.innerHTML = 'Welcome, ' + response.name;
+                            } else {
+                                resultDiv.innerHTML = response.message;
+                            }
+                        }
+                    };
+                });
+
+                registerBtn.addEventListener('click', () => {
+                    // Get the current video frame
+                    var canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    var ctx = canvas.getContext('2d');
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                    // Send the video frame and name to the server
+                    var imageData = canvas.toDataURL('image/png');
+                    var base64Data = imageData.split(',')[1];
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/register', true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.send(JSON.stringify({ video_stream: base64Data, name: nameInput.value }));
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            var response = JSON.parse(xhr.responseText);
+                            if (response.status === 'success') {
+                                resultDiv.innerHTML = 'User registered successfully';
+                            } else {
+                                resultDiv.innerHTML = response.message;
+                            }
+                        }
+                    };
+                });
+            })
+            .catch(error => {
+                console.error('Error accessing webcam:', error);
+            });
+    </script>
+</body>
+</html>
